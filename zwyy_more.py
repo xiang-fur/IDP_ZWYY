@@ -43,7 +43,6 @@ zwyy_con = requests.Session()
 
 
 def login(userid, pwd):
-    global res
     url_login = f"https://zwyy.cidp.edu.cn/ClientWeb/pro/ajax/login.aspx?id={userid}&pwd={pwd}&act=login"
     zwyy_login = zwyy_con.get(url_login, headers=zwyy_headers)
     if '个人预约制度' in zwyy_login.text:
@@ -54,33 +53,32 @@ def login(userid, pwd):
 
 
 def get_room_info(roomid, info):
-    url_get_rsv_sta = "https://zwyy.cidp.edu.cn/ClientWeb/pro/ajax/device.aspx?byType=devcls&" \
-                      "classkind=8&display=fp&md=d&room_id={}&purpose=&selectOpenAty=&" \
-                      "cld_name=default&date={}&fr_start=08:00&fr_end=22:00&act=get_rsv_sta&_={}".format(roomid,
-                                                                                                         zwyy_day,
-                                                                                                         zwyy_times)
+    url_get_rsv_sta = f"https://zwyy.cidp.edu.cn/ClientWeb/pro/ajax/device.aspx?byType=devcls&" + \
+                      f"classkind=8&display=fp&md=d&room_id={roomid}&purpose=&selectOpenAty=&" + \
+                      f"cld_name=default&date={zwyy_day}&fr_start=08:00&fr_end=22:00&act=get_rsv_sta&_={zwyy_times}"
     zwyy_get_room = zwyy_con.get(url_get_rsv_sta, headers=zwyy_headers)
     res = jsonpath.jsonpath(zwyy_get_room.json(), f'$..{info}')
     return res
 
 
 def pushdeer(text):
-    push_url = f"{jsonpath.jsonpath(zwyy_json, '$..push_url')[0]}pushkey={zwyy_pushkey[users]}&text={text}"
+    push_url = f"https://{jsonpath.jsonpath(zwyy_json, '$..push_url')[0]}/message/push?" + \
+               f"pushkey={zwyy_pushkey[users]}&text={text}"
+    if not jsonpath.jsonpath(zwyy_json, '$..push_is_https')[0]:
+        push_url = f"http://{jsonpath.jsonpath(zwyy_json, '$..push_url')[0]}/message/push?" + \
+                   f"pushkey={zwyy_pushkey[users]}&text={text}"
+    print(push_url)
     requests.post(push_url)
     pass
 
 
 def set_resv(devid, devname, name, start_time, end_time):
-    url_set_resv = "https://zwyy.cidp.edu.cn/ClientWeb/pro/ajax/reserve.aspx?dialogid=" \
-                   "&dev_id={dev}" \
-                   "&lab_id=&kind_id=&room_id=&type=dev&prop=&test_id=&term=&number=&classkind=&test_name=" \
-                   "&start={day}+{start_time}&end={day}+{end_time}" \
-                   "&start_time={start_time_n}&end_time={end_time_n}" \
-                   "&up_file=&memo=&act=set_resv&_={timestamp}".format(dev=devid, day=zwyy_day, start_time=start_time,
-                                                                       end_time=end_time,
-                                                                       start_time_n=re.sub(':', '', start_time),
-                                                                       end_time_n=re.sub(':', '', end_time),
-                                                                       timestamp=zwyy_times)
+    url_set_resv = f"https://zwyy.cidp.edu.cn/ClientWeb/pro/ajax/reserve.aspx?dialogid=" + \
+                   f"&dev_id={devid}" + \
+                   f"&lab_id=&kind_id=&room_id=&type=dev&prop=&test_id=&term=&number=&classkind=&test_name=" + \
+                   f"&start={zwyy_day}+{start_time}&end={zwyy_day}+{end_time}" + \
+                   f"&start_time={re.sub(':', '', start_time)}&end_time={re.sub(':', '', end_time)}" + \
+                   f"&up_file=&memo=&act=set_resv&_={zwyy_times}"
     zwyy_set_resv = zwyy_con.get(url_set_resv, headers=zwyy_headers)
     res = (jsonpath.jsonpath(zwyy_set_resv.json(), '$..msg'))[0]
     if '操作成功' in res:

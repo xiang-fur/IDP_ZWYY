@@ -225,7 +225,8 @@
   ],
   "push": [
     {
-      "push_url": "https://api2.pushdeer.com/message/push?",
+      "push_is_https": true,
+      "push_url": "api2.pushdeer.com",
       "pushkey": [
         ""
       ]
