@@ -27,8 +27,10 @@ if users > len(zwyy_user) - 1:
 zwyy_time = jsonpath.jsonpath(zwyy_json_load, '$..time')[0]
 zwyy_roomid = jsonpath.jsonpath(zwyy_json_load, '$..roomid')
 zwyy_devid = jsonpath.jsonpath(zwyy_json_load, '$..devid')
+zwyy_devname = jsonpath.jsonpath(zwyy_json_load, '$..devname')
 zwyy_pushkey = jsonpath.jsonpath(zwyy_json_load, '$..pushkey')[0]
-zwyy_priority = (jsonpath.jsonpath(zwyy_user[users], '$..priority'))[0]
+zwyy_priorityid = (jsonpath.jsonpath(zwyy_user[users], '$..priority_id'))[0]
+zwyy_priorityname = (jsonpath.jsonpath(zwyy_user[users], '$..priority_name'))[0]
 
 zwyy_headers = {
     "User-Agent":
@@ -44,12 +46,14 @@ def login(userid, pwd):
     if '个人预约制度' in zwyy_login.text:
         l_res = jsonpath.jsonpath(zwyy_login.json(), '$..name')[0]
     if '输入有误' in zwyy_login.text:
-        l_res = 11
+        l_res = "Login Error!"
     return l_res
 
 
-def get_room(roomid):
-    g_res = zwyy_devid[roomid]
+def get_room_info(roomid):
+    url_get_rsv_sta = f"https://zwyy.cidp.edu.cn/ClientWeb/pro/ajax/device.aspx?byType=devcls&classkind=8&display=fp&md=d&room_id={roomid}&purpose=&selectOpenAty=&cld_name=default&date={zwyy_day}&fr_start={jsonpath.jsonpath(zwyy_time, '$..start_time')[0]}&fr_end={jsonpath.jsonpath(zwyy_time, '$..end_time')[0]}&act=get_rsv_sta&_={zwyy_times}"
+    zwyy_get_room = zwyy_con.get(url_get_rsv_sta, headers=zwyy_headers)
+    g_res = jsonpath.jsonpath(zwyy_get_room.json(), '$..devname')
     return g_res
 
 
@@ -58,7 +62,7 @@ def pushdeer(text):
     requests.post(push_url)
 
 
-def set_resv(devid, time_n, name):
+def set_resv(devid, devname, time_n, name):
     url_set_resv = "https://zwyy.cidp.edu.cn/ClientWeb/pro/ajax/reserve.aspx?dialogid=" \
                    "&dev_id={dev}" \
                    "&lab_id=&kind_id=&room_id=&type=dev&prop=&test_id=&term=&number=&classkind=&test_name=" \
@@ -75,33 +79,38 @@ def set_resv(devid, time_n, name):
     msg = jsonpath.jsonpath(zwyy_set_resv.json(), '$..msg')
     if '操作成功' in msg[0]:
         pushdeer(
-            f"姓名：{name}，预约次日位置：{devid}，成功。时间段为{jsonpath.jsonpath(zwyy_time, '$..start_time')[time_n]}到{jsonpath.jsonpath(zwyy_time, '$..end_time')[time_n]}")
+            f"姓名：{name}，预约次日位置：{devname}，成功。时间段为{jsonpath.jsonpath(zwyy_time, '$..start_time')[time_n]}到{jsonpath.jsonpath(zwyy_time, '$..end_time')[time_n]}")
     return msg[0]
 
 
 def try_set_resv(userid, pwd, time_no, name, room_no):
-    dev = get_room(room_no)
+    print(room_no)
+    dev = zwyy_devid[room_no]
+    dev_name = zwyy_devname[room_no]
     dev_n = len(dev)
     n = 0
     tr_res = 1
     used_priority = 0
     while n < dev_n:
         if used_priority == 0:
-            priority_res = set_resv(zwyy_priority, time_no, name)
+            priority_res = set_resv(zwyy_priorityid, zwyy_priorityname, time_no, name)
             if 'ERRMSG_RESV_CONFLICT' in priority_res:
                 used_priority = 1
             if '操作成功' in priority_res:
                 tr_res = 0
                 break
-        if dev[n] == zwyy_priority:
+            if '未登录' in priority_res:
+                name = login(userid, pwd)
+                continue
+            if '请在7:00之后' in priority_res:
+                time.sleep(0.5)
+                continue
+        if dev[n] == zwyy_priorityid:
             n += 1
-        t_res = set_resv(dev[n], time_no, name)
+        t_res = set_resv(dev[n], dev_name[n], time_no, name)
         if '未登录' in t_res:
             name = login(userid, pwd)
-            n -= 1
-        if '请在7:00之后' in t_res:
-            time.sleep(1)
-            n -= 1
+            continue
         if '操作成功' in t_res:
             tr_res = 0
             break
@@ -111,8 +120,9 @@ def try_set_resv(userid, pwd, time_no, name, room_no):
 
 def run_zwyy(userid, pwd, time_no):
     l_res = login(userid, pwd)
-    if l_res == 11:
-        pass
+    if l_res == "Login Error!":
+        pushdeer(f"学号：{userid}，密码错误,登录失败。")
+        sys.exit(1)
     room_no = 0
     t_res = 1
     while room_no < len(zwyy_roomid):
