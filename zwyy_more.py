@@ -60,6 +60,7 @@ def get_room_info(roomid):
 def pushdeer(text):
     push_url = f"{jsonpath.jsonpath(zwyy_json_load, '$..push_url')[0]}pushkey={zwyy_pushkey[users]}&text={text}"
     requests.post(push_url)
+    pass
 
 
 def set_resv(devid, devname, time_n, name):
@@ -84,14 +85,12 @@ def set_resv(devid, devname, time_n, name):
 
 
 def try_set_resv(userid, pwd, time_no, name, room_no):
-    print(room_no)
-    dev = zwyy_devid[room_no]
+    dev_id = zwyy_devid[room_no]
     dev_name = zwyy_devname[room_no]
-    dev_n = len(dev)
     n = 0
     tr_res = 1
     used_priority = 0
-    while n < dev_n:
+    while n < len(dev_id):
         if used_priority == 0:
             priority_res = set_resv(zwyy_priorityid, zwyy_priorityname, time_no, name)
             if 'ERRMSG_RESV_CONFLICT' in priority_res:
@@ -105,9 +104,9 @@ def try_set_resv(userid, pwd, time_no, name, room_no):
             if '请在7:00之后' in priority_res:
                 time.sleep(0.5)
                 continue
-        if dev[n] == zwyy_priorityid:
+        if dev_id[n] == zwyy_priorityid:
             n += 1
-        t_res = set_resv(dev[n], dev_name[n], time_no, name)
+        t_res = set_resv(dev_id[n], dev_name[n], time_no, name)
         if '未登录' in t_res:
             name = login(userid, pwd)
             continue
@@ -120,8 +119,8 @@ def try_set_resv(userid, pwd, time_no, name, room_no):
 
 def run_zwyy(userid, pwd, time_no):
     l_res = login(userid, pwd)
-    if l_res == "Login Error!":
-        pushdeer(f"学号：{userid}，密码错误,登录失败。")
+    if l_res == 1 or l_res == "Login Error!":
+        pushdeer(f"学号：{userid}，登录失败")
         sys.exit(1)
     room_no = 0
     t_res = 1
@@ -138,18 +137,16 @@ def run_zwyy(userid, pwd, time_no):
 
 def zwyy_th(userid, pwd):
     time_thread = 0
-    # threading.Thread(target=run_zwyy, args=(userid, pwd, time_thread,)).start()
-    # """
     while time_thread < len(zwyy_time):
         threading.Thread(target=run_zwyy, args=(userid, pwd, time_thread,)).start()
         time_thread += 1
     pass
-    # """
 
 
 def main():
     pushdeer(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time())) + ' 开始')
     zwyy_th((jsonpath.jsonpath(zwyy_user[users], '$..id'))[0], (jsonpath.jsonpath(zwyy_user[users], '$..pwd'))[0])
+    pass
 
 
 main()
