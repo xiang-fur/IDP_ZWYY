@@ -227,9 +227,7 @@
     {
       "push_is_https": true,
       "push_url": "api2.pushdeer.com",
-      "pushkey": [
-        ""
-      ]
+      "pushkey": [""]
     }
   ]
 }

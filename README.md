@@ -6,6 +6,8 @@
 结果通知通过PushDeer推送,使用自架服务器，感谢他们的开源代码。   
 依赖包：jsonpath、requests
 
+使用前请将zwyy_json-example.json重命名为zwyy_json.json，并填写相关信息。
+
 
 ## 感谢
 推送服务：[PushDeer](https://github.com/easychen/pushdeer)   
