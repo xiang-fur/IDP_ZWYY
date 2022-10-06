@@ -225,6 +225,7 @@
   ],
   "push": [
     {
+      "use_push": false,
       "push_is_https": true,
       "push_url": "api2.pushdeer.com",
       "pushkey": [""]

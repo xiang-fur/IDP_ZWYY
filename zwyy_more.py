@@ -29,9 +29,13 @@ zwyy_time = jsonpath.jsonpath(zwyy_json, '$..time')[0]
 zwyy_roomid = jsonpath.jsonpath(zwyy_json, '$..roomid')
 zwyy_devid = jsonpath.jsonpath(zwyy_json, '$..devid')
 zwyy_devname = jsonpath.jsonpath(zwyy_json, '$..devname')
-zwyy_pushkey = jsonpath.jsonpath(zwyy_json, '$..pushkey')[0]
 zwyy_priorityid = (jsonpath.jsonpath(zwyy_user[users], '$..priority_id'))[0]
 zwyy_priorityname = (jsonpath.jsonpath(zwyy_user[users], '$..priority_name'))[0]
+
+use_push = jsonpath.jsonpath(zwyy_json, '$..use_push')[0]
+
+if use_push:
+    zwyy_pushkey = jsonpath.jsonpath(zwyy_json, '$..pushkey')[0]
 
 zwyy_headers = {
     "User-Agent":
@@ -83,11 +87,17 @@ def set_resv(devid, devname, name, start_time, end_time):
     res = (jsonpath.jsonpath(zwyy_set_resv.json(), '$..msg'))[0]
     if '操作成功' in res:
         if devid == zwyy_priorityid:
-            pushdeer(
-                f"姓名：{name}，优先预约成功，位置为{devname}。时间段为{start_time}到{end_time}")
+            to_res = f"姓名：{name}，优先预约成功，位置为{devname}。时间段为{start_time}到{end_time}"
+            if use_push:
+                pushdeer(to_res)
+            else:
+                print(to_res)
         else:
-            pushdeer(
-                f"姓名：{name}，循环预约成功，位置为{devname}。时间段为{start_time}到{end_time}")
+            to_res = f"姓名：{name}，循环预约成功，位置为{devname}。时间段为{start_time}到{end_time}"
+            if use_push:
+                pushdeer(to_res)
+            else:
+                print(to_res)
     return res
 
 
@@ -140,7 +150,10 @@ def run_zwyy(userid, pwd, time_no):
             break
     if res == 1:
         res = "姓名：{}，日期：{}，{}至{}时间段预约座位失败 ".format(login_res, zwyy_day, start_time, end_time)
-        pushdeer(res)
+        if use_push:
+            pushdeer(res)
+        else:
+            print(res)
     pass
 
 
@@ -153,7 +166,10 @@ def zwyy_th(userid, pwd):
 
 
 def main():
-    pushdeer(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time())) + ' 开始')
+    if use_push:
+        pushdeer(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time())) + ' 开始')
+    else:
+        print(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time())) + ' 开始')
     zwyy_th((jsonpath.jsonpath(zwyy_user[users], '$..id'))[0], (jsonpath.jsonpath(zwyy_user[users], '$..pwd'))[0])
     pass
 
@@ -163,4 +179,4 @@ if len(sys.argv) == 3:
     print(res)
     sys.exit(0)
 
-main()
+#main()
