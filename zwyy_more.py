@@ -36,6 +36,10 @@ use_push = jsonpath.jsonpath(zwyy_json, '$..use_push')[0]
 
 if use_push:
     zwyy_pushkey = jsonpath.jsonpath(zwyy_json, '$..pushkey')[0]
+else:
+    f = open('con_cidp.log', 'a')
+    sys.stdout = f
+    sys.stderr = f
 
 zwyy_headers = {
     "User-Agent":
@@ -179,4 +183,4 @@ if len(sys.argv) == 3:
     print(res)
     sys.exit(0)
 
-#main()
+main()
