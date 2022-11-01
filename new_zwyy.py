@@ -9,7 +9,7 @@ import os
 import threading
 import time
 
-import ddddocr
+import ddddocr_m
 import jsonpath
 import requests
 from Crypto.Cipher import PKCS1_v1_5
@@ -26,6 +26,8 @@ headers = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
                   "Chrome/92.0.4515.159 Safari/537.36"
 }
+
+ocr = ddddocr_m.DdddOcr()  # 初始化ocr
 
 
 # 加载Json
@@ -78,7 +80,6 @@ def encrypt_password(password):
 
 # 获取和解析验证码，返回验证码文本
 def get_captcha():
-    ocr = ddddocr.DdddOcr(show_ad=False)  # 初始化ocr
     url_get_captcha = f"https://zwyy.cidp.edu.cn/ic-web/captcha?id={times}"
     con_get_captcha = zwyy_con.get(url_get_captcha, verify=False, headers=headers)
     captcha = ocr.classification(con_get_captcha.content)
@@ -100,6 +101,7 @@ def get_login(userid, password):
         if "登录成功" in con_login.text:
             accNo = jsonpath.jsonpath(con_login.json(), '$..accNo')[0]
             trueName = jsonpath.jsonpath(con_login.json(), '$..trueName')[0]
+            print("登录成功")
             return accNo, trueName
             pass
         if "验证码错误" in con_login.text:
@@ -196,7 +198,7 @@ def v_info():
                 "██║██████╔╝██║███████╗███████╗╚███╔███╔╝   ██║      ██║   \n" \
                 "╚═╝╚═════╝ ╚═╝╚══════╝╚══════╝ ╚══╝╚══╝    ╚═╝      ╚═╝   \n" \
                 "                                                          \n"
-    update_text = "版本更新说明\n版本v1.0，基于新座位预约系统编写，基本功能正常使用，第一个发布版。\n版本v1.1，优化显示，独立部分模块，允许未到时间提前登录的，概率上加快抢座位速度。\n"
+    update_text = "版本更新说明\n版本v1.0，基于新座位预约系统编写，基本功能正常使用，第一个发布版。\n版本v1.1，优化显示，独立部分模块，允许未到时间提前登录的，概率上加快抢座位速度。\n版本v1.2，精简化ddddocr，缩小生成文件体积,同时易于生成。\n"
     print(logo_text + update_text)
 
 
@@ -235,6 +237,7 @@ def p_run():
 
 
 def main():
+    cls = os.system("cls")
     v_info()
     load_res = load_zwyy_json()  # 加载Json
     if load_res == "JsonNotFile":

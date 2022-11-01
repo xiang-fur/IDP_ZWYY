@@ -1,4 +1,7 @@
 jsonpath
 requests
-ddddocr
 pycryptodome
+onnxruntime
+numpy
+Pillow
+pyinstaller
