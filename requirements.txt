@@ -1,2 +1,4 @@
-jsonpath~=0.82
-requests~=2.28.1
+jsonpath
+requests
+ddddocr
+pycryptodome
