@@ -16,9 +16,7 @@ from Crypto.Cipher import PKCS1_v1_5
 from Crypto.PublicKey import RSA
 
 jsonfile = './zwyy_json.json'  # Json位置
-times = int(time.time() * 1000)
 tomorrow_date = str(time.strftime('%Y-%m-%d', time.localtime(time.time() + 86400)))
-zwyy_con = requests.Session()
 
 headers = {
     "Accept": "application/json, text/plain, */*",
@@ -59,7 +57,7 @@ def _push(text):
 
 
 # 获取和拼凑密钥，返回密钥和随机码
-def get_nonceStr_publicKey():
+def get_nonceStr_publicKey(zwyy_con):
     url_nonceStr_publicKey = "https://zwyy.cidp.edu.cn/ic-web/login/publicKey"
     con_nonceStr_publicKey = zwyy_con.get(url_nonceStr_publicKey, verify=False)
     publicKey = '-----BEGIN PUBLIC KEY-----\n' + jsonpath.jsonpath(con_nonceStr_publicKey.json(), '$..publicKey')[
@@ -69,8 +67,8 @@ def get_nonceStr_publicKey():
 
 
 # RSA加密密码，返回密文
-def encrypt_password(password):
-    publicKey, nonceStr = get_nonceStr_publicKey()
+def encrypt_password(zwyy_con, password):
+    publicKey, nonceStr = get_nonceStr_publicKey(zwyy_con)
     rsaKey = RSA.importKey(publicKey)
     cipher = PKCS1_v1_5.new(rsaKey)
     r = str(password) + ";" + nonceStr
@@ -79,68 +77,86 @@ def encrypt_password(password):
 
 
 # 获取和解析验证码，返回验证码文本
-def get_captcha():
-    url_get_captcha = f"https://zwyy.cidp.edu.cn/ic-web/captcha?id={times}"
-    con_get_captcha = zwyy_con.get(url_get_captcha, verify=False, headers=headers)
-    captcha = ocr.classification(con_get_captcha.content)
+def get_captcha(zwyy_con):
+    con_get_captcha = None
+    captcha = None
+    res = 1
+    while res == 1:
+        try:
+            url_get_captcha = f"https://zwyy.cidp.edu.cn/ic-web/captcha?id={int(time.time() * 1000)}"
+            con_get_captcha = zwyy_con.get(url_get_captcha, verify=False, headers=headers)
+        except:
+            res = 1
+        finally:
+            captcha = ocr.classification(con_get_captcha.content)
+            res = 0
+
     return captcha
 
 
 # 登录，返回用户id和姓名
-def get_login(userid, password):
+def get_login(zwyy_con, userid, password):
     n = 0
     while n <= 8:
-        captcha = get_captcha()
-        pwd = encrypt_password(password)
+        captcha = get_captcha(zwyy_con)
+        pwd = encrypt_password(zwyy_con, password)
         url_login = "https://zwyy.cidp.edu.cn/ic-web/login/user"
         data = {"logonName": userid,
                 "password": pwd,
                 "captcha": captcha,
                 "consoleType": 16}
-        con_login = zwyy_con.post(url_login, json=data, verify=False, headers=headers)
+        try:
+            con_login = zwyy_con.post(url_login, json=data, verify=False, headers=headers)
+        except:
+            continue
+
         if "登录成功" in con_login.text:
             accNo = jsonpath.jsonpath(con_login.json(), '$..accNo')[0]
             trueName = jsonpath.jsonpath(con_login.json(), '$..trueName')[0]
             print("登录成功")
             return accNo, trueName
             pass
-        if "验证码错误" in con_login.text:
+        elif "验证码错误" in con_login.text:
             n -= 1
-        if "账号或密码不正确" in con_login.text:
+        elif "账号或密码不正确" in con_login.text:
             _push(f"{userid}，账号或密码不正确")
             return int(00000000), int(00000000)
-        if n == 8:
+        elif n == 8:
             return int(00000000), int(00000000)
         n += 1
 
 
 # 获取指定时间BeginTime-EndTime单个座位
-def get_a_resv(resvMember, resvDev, start_time, end_time, userid, password):
+def get_a_resv(zwyy_con, resvMember, resvDev, start_time, end_time, userid, password):
     BeginTime = tomorrow_date + " " + start_time  # 2022-11-01 13:05:00
     EndTime = tomorrow_date + " " + end_time  # 2022-11-01 14:50:00
     data = {"sysKind": 8, "appAccNo": int(resvMember), "memberKind": 1, "resvMember": [int(resvMember)],
             "resvBeginTime": BeginTime, "resvEndTime": EndTime, "testName": "", "captcha": "",
             "resvProperty": 0, "resvDev": [int(resvDev)], "memo": ""}
-    con_nonceStr_publicKey = zwyy_con.post("https://zwyy.cidp.edu.cn/ic-web/reserve", json=data, verify=False,
-                                           headers=headers)
+    try:
+        con_nonceStr_publicKey = zwyy_con.post("https://zwyy.cidp.edu.cn/ic-web/reserve", json=data, verify=False,
+                                               headers=headers)
+    except:
+        return "Get_Error"
+    print(con_nonceStr_publicKey.text)
     if "新增成功" in con_nonceStr_publicKey.text:
         return "新增成功"
-    if "用户未登录" in con_nonceStr_publicKey.text:
+    elif "用户未登录" in con_nonceStr_publicKey.text:
         while 1:
-            res = get_login(userid, password)
+            res = get_login(zwyy_con, userid, password)
             if res == int(00000000):
-                return "Error"
+                return "User_Error"
 
 
 # 获取指定时间BeginTime-EndTime内单个教室座位,返回两组数据
-def get_all_resv(resvMember, room_no, start_time, end_time, userid, password):
+def get_all_resv(zwyy_con, resvMember, room_no, start_time, end_time, userid, password):
     dev_no = 0
     res_a = 00
     res_b = 00
     dev_id = zwyy_devid[room_no]
     dev_name = zwyy_devname[room_no]
     # 优选座位获取
-    priority_res = get_a_resv(resvMember, zwyy_priorityid, start_time, end_time, userid, password)
+    priority_res = get_a_resv(zwyy_con, resvMember, zwyy_priorityid, start_time, end_time, userid, password)
     if priority_res == "新增成功":
         return zwyy_priorityid, zwyy_priorityname
     # 正常循环获取
@@ -148,45 +164,34 @@ def get_all_resv(resvMember, room_no, start_time, end_time, userid, password):
         if dev_id[dev_no] == zwyy_priorityid:
             dev_no += 1
             continue
-        res = get_a_resv(resvMember, dev_id[dev_no], start_time, end_time, userid, password)
+        res = get_a_resv(zwyy_con, resvMember, dev_id[dev_no], start_time, end_time, userid, password)
+        if res == "Get_Error":
+            continue
         dev_no += 1
         if res == "新增成功":
             return dev_id[dev_no], dev_name[dev_no]
-        if res == "Error":
+        if res == "User_Error":
             break
     return res_a, res_b
 
 
 # 循环time_no时间段内获取多个教室
-def get_all_room(resvMember, time_no, name, userid, password):
+def get_all_room(zwyy_con, resvMember, time_no, name, userid, password):
+    global all_res
     start_time = jsonpath.jsonpath(zwyy_time[time_no], '$..start_time')[0]
     end_time = jsonpath.jsonpath(zwyy_time[time_no], '$..end_time')[0]
     room_no = 0
     while room_no < len(zwyy_roomid):
-        res_a, res_b = get_all_resv(resvMember, room_no, start_time, end_time, userid, password)
+        res_a, res_b = get_all_resv(zwyy_con, resvMember, room_no, start_time, end_time, userid, password)
         if "TY" in str(res_b):
-            res = f"姓名：{name}，预约成功，位置为{res_b}。时间段为{start_time}到{end_time}"
-            _push(res)
+            res = f"时间段为{start_time}到{end_time}，座位预约成功，位置为{res_b}。\n"
+            all_res += res
             break
         room_no += 1
         if res_b == 00 and room_no >= len(zwyy_roomid):
-            res = f"姓名：{name}，日期：{tomorrow_date}，{start_time}至{end_time}时间段预约座位失败 "
-            _push(res)
+            res = f"时间段为{start_time}到{end_time}，座位预约失败.\n"
+            all_res += res
             break
-
-
-# 多线程获取多个时间段内的座位
-def zwyy_th(resvMember, name, userid, password):
-    time_thread = 0
-    threads = []
-    while time_thread < len(zwyy_time):
-        t = threading.Thread(target=get_all_room, args=(resvMember, time_thread, name, userid, password,))
-        threads.append(t)
-        t.start()
-        time_thread += 1
-    for _ in threads:
-        t.join()
-    return "OK"
 
 
 def v_info():
@@ -199,27 +204,20 @@ def v_info():
                 "╚═╝╚═════╝ ╚═╝╚══════╝╚══════╝ ╚══╝╚══╝    ╚═╝      ╚═╝   \n" \
                 "                                                          \n"
     update_text = "版本更新说明\n版本v1.0，基于新座位预约系统编写，基本功能正常使用，第一个发布版。\n版本v1.1，优化显示，独立部分模块，允许未到时间提前登录的，概率上加快抢座位速度。\n版本v1.2，精简化ddddocr，缩小生成文件体积,同时易于生成。\n"
-    print(logo_text + update_text)
+    print(logo_text)
 
 
 def to_print(text):
     print('\r' + str(text), end='', flush=True)
 
 
-def p_run():
-    # 确认时间，提前一分钟进行登录
-    now_time = int(time.strftime('%H%M', time.localtime(time.time())))
-    if now_time < 659:
-        to_print("时间未到6:59，将不会进行登录，请等待时间到点，将每秒重新检查时间")
-        while now_time < 659:
-            to_print('现在时间是' + str(time.strftime('%H:%M:%S', time.localtime(time.time()))))
-            time.sleep(1)
-            now_time = int(time.strftime('%H%M', time.localtime(time.time())))
-    # 确认时间，进行登录
+def p_run(use_threads: bool = False):
+    zwyy_con = requests.Session()  # 初始化requests
+    # 进行登录
     to_print('进行登录……')
     user = (jsonpath.jsonpath(zwyy_user[0], '$..id'))[0]
     pwd = (jsonpath.jsonpath(zwyy_user[0], '$..pwd'))[0]
-    userid, name = get_login(user, pwd)
+    userid, name = get_login(zwyy_con, user, pwd)
     if userid == int(00000000):
         _push("登录出现问题，请检查！")
         return
@@ -232,18 +230,36 @@ def p_run():
             time.sleep(1)
             now_time = int(time.strftime('%H%M', time.localtime(time.time())))
     to_print('现在时间是' + str(time.strftime('%H:%M:%S', time.localtime(time.time()))) + ",开始预约座位！\n")
-    res = zwyy_th(userid, name, userid, pwd)
-    return res
+    # 多线程获取座位
+    global all_res
+    all_res = f"姓名：{name},运行结果：\n"
+    time_thread = 0
+    threads = []
+    while time_thread < len(zwyy_time):
+        t = threading.Thread(target=get_all_room, args=(zwyy_con, userid, time_thread, name, user, pwd,))
+        threads.append(t)
+        t.start()
+        if not use_threads:
+            t.join()
+        time_thread += 1
+    if use_threads:
+        for _ in threads:
+            t.join()
+    return "OK"
+    # res = zwyy_th(userid, name, userid, pwd)
 
 
 def main():
-    cls = os.system("cls")
+    os.system("cls")
     v_info()
     load_res = load_zwyy_json()  # 加载Json
     if load_res == "JsonNotFile":
         return
     res = p_run()
     if res == "OK":
+        os.system("cls")
+        v_info()
+        _push(all_res)
         os.system("pause")
 
 
