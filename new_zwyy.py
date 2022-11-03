@@ -9,40 +9,23 @@ import os
 import threading
 import time
 
-import ddddocr_m
 import jsonpath
 import requests
 from Crypto.Cipher import PKCS1_v1_5
 from Crypto.PublicKey import RSA
 
-jsonfile = './zwyy_json.json'  # Json位置
+from ddddocr_m import DdddOcr
+
+jsonfile = './zwyy_json.json'  # Json位置，使用cron运行请写完整路径
 tomorrow_date = str(time.strftime('%Y-%m-%d', time.localtime(time.time() + 86400)))
 
 headers = {
     "Accept": "application/json, text/plain, */*",
     "Host": "zwyy.cidp.edu.cn",
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
-                  "Chrome/92.0.4515.159 Safari/537.36"
-}
+                  "Chrome/92.0.4515.159 Safari/537.36"}
 
-ocr = ddddocr_m.DdddOcr()  # 初始化ocr
-
-
-# 加载Json
-def load_zwyy_json():
-    if not os.path.isfile(jsonfile):
-        print('未找到zwyy_json.json，请检查！')
-        return "JsonNotFile"
-    zwyy_json = json.load(open(jsonfile, 'r'))  # 使用cron运行请写完整路径
-    global zwyy_user, zwyy_time, zwyy_roomid, zwyy_devid, zwyy_devname, zwyy_priorityid, zwyy_priorityname, pushkey
-    zwyy_user = jsonpath.jsonpath(zwyy_json, '$..user')[0]
-    zwyy_time = jsonpath.jsonpath(zwyy_json, '$..time')[0]
-    zwyy_roomid = jsonpath.jsonpath(zwyy_json, '$..roomid')
-    zwyy_devid = jsonpath.jsonpath(zwyy_json, '$..devid')
-    zwyy_devname = jsonpath.jsonpath(zwyy_json, '$..devname')
-    zwyy_priorityid = (jsonpath.jsonpath(zwyy_user[0], '$..priority_id'))[0]
-    zwyy_priorityname = (jsonpath.jsonpath(zwyy_user[0], '$..priority_name'))[0]
-    pushkey = jsonpath.jsonpath(zwyy_json, '$..pushkey')[0]
+ocr = DdddOcr()  # 初始化ocr
 
 
 # 推送&显示返回
@@ -51,19 +34,61 @@ def _push(text):
     try:
         push_url = f"https://api2.pushdeer.com/message/push?pushkey={pushkey}&text={text}"
         requests.get(push_url, timeout=3, verify=False)
-    except:
+    except\
+            :
         with open('./zwyy.log', 'a+') as f:
             print(text, file=f)
+
+
+def to_print(text):
+    print('\r' + str(text), end='', flush=True)
+
+
+# 版本信息
+def v_info():
+    logo_text = "                                                          \n" \
+                "██╗██████╗ ██████╗    ███████╗██╗    ██╗██╗   ██╗██╗   ██╗\n" \
+                "██║██╔══██╗██╔══██╗   ╚══███╔╝██║    ██║╚██╗ ██╔╝╚██╗ ██╔╝\n" \
+                "██║██║  ██║██████╔╝     ███╔╝ ██║ █╗ ██║ ╚████╔╝  ╚████╔╝ \n" \
+                "██║██║  ██║██╔═══╝     ███╔╝  ██║███╗██║  ╚██╔╝    ╚██╔╝  \n" \
+                "██║██████╔╝██║███████╗███████╗╚███╔███╔╝   ██║      ██║   \n" \
+                "╚═╝╚═════╝ ╚═╝╚══════╝╚══════╝ ╚══╝╚══╝    ╚═╝      ╚═╝   \n" \
+                "                                                          \n"
+    update_text = "版本更新说明\n版本v1.0，基于新座位预约系统编写，基本功能正常使用，第一个发布版。\n版本v1.1，优化显示，独立部分模块，允许未到时间提前登录的，概率上加快抢座位速度。\n版本v1.2" \
+                  "，精简化ddddocr，缩小生成文件体积,同时易于生成。\n "
+    print(logo_text)
+
+
+# 加载Json
+def load_zwyy_json():
+    if not os.path.isfile(jsonfile):
+        print('未找到zwyy_json.json，请检查！')
+        return "JsonNotFile"
+    zwyy_json = json.load(open(jsonfile, 'r'))
+    global zwyy_user, zwyy_time, zwyy_roomid, zwyy_devid, zwyy_devname, zwyy_priorityid, zwyy_priorityname, pushkey
+    zwyy_user = zwyy_json['user']
+    zwyy_time = zwyy_json['time']
+    zwyy_roomid = jsonpath.jsonpath(zwyy_json, '$..roomid')
+    zwyy_devid = jsonpath.jsonpath(zwyy_json, '$..devid')
+    zwyy_devname = jsonpath.jsonpath(zwyy_json, '$..devname')
+    zwyy_priorityid = zwyy_user[0]['priority_id']
+    zwyy_priorityname = zwyy_user[0]['priority_name']
+    pushkey = zwyy_json['pushkey']
 
 
 # 获取和拼凑密钥，返回密钥和随机码
 def get_nonceStr_publicKey(zwyy_con):
     url_nonceStr_publicKey = "https://zwyy.cidp.edu.cn/ic-web/login/publicKey"
-    con_nonceStr_publicKey = zwyy_con.get(url_nonceStr_publicKey, verify=False)
-    publicKey = '-----BEGIN PUBLIC KEY-----\n' + jsonpath.jsonpath(con_nonceStr_publicKey.json(), '$..publicKey')[
-        0] + '\n-----END PUBLIC KEY-----'
-    nonceStr = jsonpath.jsonpath(con_nonceStr_publicKey.json(), '$..nonceStr')[0]
-    return publicKey, nonceStr
+    while True:
+        try:
+            con_nonceStr_publicKey = zwyy_con.get(url_nonceStr_publicKey, verify=False)
+        except:
+            continue
+        finally:
+            publicKey = '-----BEGIN PUBLIC KEY-----\n' + jsonpath.jsonpath(con_nonceStr_publicKey.json(), '$..publicKey')[
+                0] + '\n-----END PUBLIC KEY-----'
+            nonceStr = jsonpath.jsonpath(con_nonceStr_publicKey.json(), '$..nonceStr')[0]
+            return publicKey, nonceStr
 
 
 # RSA加密密码，返回密文
@@ -79,19 +104,15 @@ def encrypt_password(zwyy_con, password):
 # 获取和解析验证码，返回验证码文本
 def get_captcha(zwyy_con):
     con_get_captcha = None
-    captcha = None
-    res = 1
-    while res == 1:
+    while True:
         try:
             url_get_captcha = f"https://zwyy.cidp.edu.cn/ic-web/captcha?id={int(time.time() * 1000)}"
             con_get_captcha = zwyy_con.get(url_get_captcha, verify=False, headers=headers)
         except:
-            res = 1
+            continue
         finally:
             captcha = ocr.classification(con_get_captcha.content)
-            res = 0
-
-    return captcha
+            return captcha
 
 
 # 登录，返回用户id和姓名
@@ -139,8 +160,11 @@ def get_a_resv(zwyy_con, resvMember, resvDev, start_time, end_time, userid, pass
     except:
         return "Get_Error"
     print(con_nonceStr_publicKey.text)
+
     if "新增成功" in con_nonceStr_publicKey.text:
         return "新增成功"
+    elif "7:00" or "7：00" in con_nonceStr_publicKey.text:
+        return "Get_Error"
     elif "用户未登录" in con_nonceStr_publicKey.text:
         while 1:
             res = get_login(zwyy_con, userid, password)
@@ -156,9 +180,14 @@ def get_all_resv(zwyy_con, resvMember, room_no, start_time, end_time, userid, pa
     dev_id = zwyy_devid[room_no]
     dev_name = zwyy_devname[room_no]
     # 优选座位获取
-    priority_res = get_a_resv(zwyy_con, resvMember, zwyy_priorityid, start_time, end_time, userid, password)
-    if priority_res == "新增成功":
-        return zwyy_priorityid, zwyy_priorityname
+    while True:
+        priority_res = get_a_resv(zwyy_con, resvMember, zwyy_priorityid, start_time, end_time, userid, password)
+        if priority_res == "新增成功":
+            return zwyy_priorityid, zwyy_priorityname
+        elif priority_res == "Get_Error":
+            continue
+        else:
+            break
     # 正常循环获取
     while dev_no < len(dev_id):
         if dev_id[dev_no] == zwyy_priorityid:
@@ -176,7 +205,7 @@ def get_all_resv(zwyy_con, resvMember, room_no, start_time, end_time, userid, pa
 
 
 # 循环time_no时间段内获取多个教室
-def get_all_room(zwyy_con, resvMember, time_no, name, userid, password):
+def get_all_room(zwyy_con, resvMember, time_no, userid, password):
     global all_res
     start_time = jsonpath.jsonpath(zwyy_time[time_no], '$..start_time')[0]
     end_time = jsonpath.jsonpath(zwyy_time[time_no], '$..end_time')[0]
@@ -184,39 +213,22 @@ def get_all_room(zwyy_con, resvMember, time_no, name, userid, password):
     while room_no < len(zwyy_roomid):
         res_a, res_b = get_all_resv(zwyy_con, resvMember, room_no, start_time, end_time, userid, password)
         if "TY" in str(res_b):
-            res = f"时间段为{start_time}到{end_time}，座位预约成功，位置为{res_b}。\n"
+            res = f"时间段为{start_time}到{end_time}，座位预约成功，位置为{res_b}\n"
             all_res += res
             break
         room_no += 1
         if res_b == 00 and room_no >= len(zwyy_roomid):
-            res = f"时间段为{start_time}到{end_time}，座位预约失败.\n"
+            res = f"时间段为{start_time}到{end_time}，座位预约失败\n"
             all_res += res
             break
 
 
-def v_info():
-    logo_text = "                                                          \n" \
-                "██╗██████╗ ██████╗    ███████╗██╗    ██╗██╗   ██╗██╗   ██╗\n" \
-                "██║██╔══██╗██╔══██╗   ╚══███╔╝██║    ██║╚██╗ ██╔╝╚██╗ ██╔╝\n" \
-                "██║██║  ██║██████╔╝     ███╔╝ ██║ █╗ ██║ ╚████╔╝  ╚████╔╝ \n" \
-                "██║██║  ██║██╔═══╝     ███╔╝  ██║███╗██║  ╚██╔╝    ╚██╔╝  \n" \
-                "██║██████╔╝██║███████╗███████╗╚███╔███╔╝   ██║      ██║   \n" \
-                "╚═╝╚═════╝ ╚═╝╚══════╝╚══════╝ ╚══╝╚══╝    ╚═╝      ╚═╝   \n" \
-                "                                                          \n"
-    update_text = "版本更新说明\n版本v1.0，基于新座位预约系统编写，基本功能正常使用，第一个发布版。\n版本v1.1，优化显示，独立部分模块，允许未到时间提前登录的，概率上加快抢座位速度。\n版本v1.2，精简化ddddocr，缩小生成文件体积,同时易于生成。\n"
-    print(logo_text)
-
-
-def to_print(text):
-    print('\r' + str(text), end='', flush=True)
-
-
-def p_run(use_threads: bool = False):
+def p_run(use_threads: bool = True):  # 注意，启用多线程有可能会导致未知的错误！
     zwyy_con = requests.Session()  # 初始化requests
     # 进行登录
     to_print('进行登录……')
-    user = (jsonpath.jsonpath(zwyy_user[0], '$..id'))[0]
-    pwd = (jsonpath.jsonpath(zwyy_user[0], '$..pwd'))[0]
+    user = zwyy_user[0]["id"]
+    pwd = zwyy_user[0]["pwd"]
     userid, name = get_login(zwyy_con, user, pwd)
     if userid == int(00000000):
         _push("登录出现问题，请检查！")
@@ -236,12 +248,13 @@ def p_run(use_threads: bool = False):
     time_thread = 0
     threads = []
     while time_thread < len(zwyy_time):
-        t = threading.Thread(target=get_all_room, args=(zwyy_con, userid, time_thread, name, user, pwd,))
+        t = threading.Thread(target=get_all_room, args=(zwyy_con, userid, time_thread, user, pwd,))
         threads.append(t)
         t.start()
         if not use_threads:
             t.join()
         time_thread += 1
+        time.sleep(0.5)
     if use_threads:
         for _ in threads:
             t.join()
