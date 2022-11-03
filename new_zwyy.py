@@ -26,6 +26,7 @@ headers = {
                   "Chrome/92.0.4515.159 Safari/537.36"}
 
 ocr = DdddOcr()  # 初始化ocr
+res_lock = threading.Lock()
 
 
 # 推送&显示返回
@@ -162,11 +163,15 @@ def get_a_resv(zwyy_con, resvMember, resvDev, start_time, end_time, userid, pass
     print(str(resvDev)+'，'+con_nonceStr_publicKey.text)
 
     if "新增成功" in con_nonceStr_publicKey.text:
-        return "新增成功"
+        return "Success"
     elif "请在7:00之后" in con_nonceStr_publicKey.text:
         return "Get_Error"
+    elif "该时间段内已被预约" in con_nonceStr_publicKey.text:
+        return "Booked"
+    elif "您有预约操作正在进行" in con_nonceStr_publicKey.text:
+        return "Appointment_duplication"
     elif "用户未登录" in con_nonceStr_publicKey.text:
-        while 1:
+        while True:
             res = get_login(zwyy_con, userid, password)
             if res == int(00000000):
                 return "User_Error"
@@ -182,11 +187,15 @@ def get_all_resv(zwyy_con, resvMember, room_no, start_time, end_time, userid, pa
     # 优选座位获取
     while True:
         priority_res = get_a_resv(zwyy_con, resvMember, zwyy_priorityid, start_time, end_time, userid, password)
-        if priority_res == "新增成功":
+        if priority_res == "Success":
             return zwyy_priorityid, zwyy_priorityname
+        elif priority_res == "Appointment_duplication":
+            continue
         elif priority_res == "Get_Error":
             continue
-        else:
+        elif priority_res == "Booked":
+            break
+        if int(time.strftime('%H%M', time.localtime(time.time()))) >= 701:
             break
     # 正常循环获取
     while dev_no < len(dev_id):
@@ -196,11 +205,13 @@ def get_all_resv(zwyy_con, resvMember, room_no, start_time, end_time, userid, pa
         res = get_a_resv(zwyy_con, resvMember, dev_id[dev_no], start_time, end_time, userid, password)
         if res == "Get_Error":
             continue
-        dev_no += 1
-        if res == "新增成功":
+        elif res == "Appointment_duplication":
+            continue
+        elif res == "Success":
             return dev_id[dev_no], dev_name[dev_no]
-        if res == "User_Error":
+        elif res == "User_Error":
             break
+        dev_no += 1
     return res_a, res_b
 
 
@@ -214,12 +225,24 @@ def get_all_room(zwyy_con, resvMember, time_no, userid, password):
         res_a, res_b = get_all_resv(zwyy_con, resvMember, room_no, start_time, end_time, userid, password)
         if "TY" in str(res_b):
             res = f"时间段为{start_time}到{end_time}，座位预约成功，位置为{res_b}\n"
-            all_res += res
+            while True:
+                try:
+                    res_lock.acquire()
+                    all_res += res
+                finally:
+                    res_lock.release()
+                    break
             return
         room_no += 1
         if res_b == 00 and room_no >= len(zwyy_roomid):
             res = f"时间段为{start_time}到{end_time}，座位预约失败\n"
-            all_res += res
+            while True:
+                try:
+                    res_lock.acquire()
+                    all_res += res
+                finally:
+                    res_lock.release()
+                    break
             return
 
 
@@ -248,13 +271,13 @@ def p_run(use_threads: bool = True):  # 注意，启用多线程有可能会导�
     time_thread = 0
     threads = []
     while time_thread < len(zwyy_time):
+        print(f"线程{time_thread}开始运行")
         t = threading.Thread(target=get_all_room, args=(zwyy_con, userid, time_thread, user, pwd,))
         threads.append(t)
         t.start()
         if not use_threads:
             t.join()
         time_thread += 1
-        time.sleep(0.5)
     if use_threads:
         for _ in threads:
             t.join()
