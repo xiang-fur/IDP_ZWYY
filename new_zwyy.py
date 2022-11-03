@@ -159,11 +159,11 @@ def get_a_resv(zwyy_con, resvMember, resvDev, start_time, end_time, userid, pass
                                                headers=headers)
     except:
         return "Get_Error"
-    print(con_nonceStr_publicKey.text)
+    print(str(resvDev)+'，'+con_nonceStr_publicKey.text)
 
     if "新增成功" in con_nonceStr_publicKey.text:
         return "新增成功"
-    elif "7:00" or "7：00" in con_nonceStr_publicKey.text:
+    elif "请在7:00之后" in con_nonceStr_publicKey.text:
         return "Get_Error"
     elif "用户未登录" in con_nonceStr_publicKey.text:
         while 1:
@@ -215,12 +215,12 @@ def get_all_room(zwyy_con, resvMember, time_no, userid, password):
         if "TY" in str(res_b):
             res = f"时间段为{start_time}到{end_time}，座位预约成功，位置为{res_b}\n"
             all_res += res
-            break
+            return
         room_no += 1
         if res_b == 00 and room_no >= len(zwyy_roomid):
             res = f"时间段为{start_time}到{end_time}，座位预约失败\n"
             all_res += res
-            break
+            return
 
 
 def p_run(use_threads: bool = True):  # 注意，启用多线程有可能会导致未知的错误！
