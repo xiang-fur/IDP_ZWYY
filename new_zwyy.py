@@ -35,8 +35,7 @@ def _push(text):
     try:
         push_url = f"https://api2.pushdeer.com/message/push?pushkey={pushkey}&text={text}"
         requests.get(push_url, timeout=3, verify=False)
-    except\
-            :
+    except:
         with open('./zwyy.log', 'a+') as f:
             print(text, file=f)
 
@@ -86,8 +85,9 @@ def get_nonceStr_publicKey(zwyy_con):
         except:
             continue
         finally:
-            publicKey = '-----BEGIN PUBLIC KEY-----\n' + jsonpath.jsonpath(con_nonceStr_publicKey.json(), '$..publicKey')[
-                0] + '\n-----END PUBLIC KEY-----'
+            publicKey = '-----BEGIN PUBLIC KEY-----\n' + \
+                        jsonpath.jsonpath(con_nonceStr_publicKey.json(), '$..publicKey')[
+                            0] + '\n-----END PUBLIC KEY-----'
             nonceStr = jsonpath.jsonpath(con_nonceStr_publicKey.json(), '$..nonceStr')[0]
             return publicKey, nonceStr
 
@@ -131,7 +131,7 @@ def get_login(zwyy_con, userid, password):
             con_login = zwyy_con.post(url_login, json=data, verify=False, headers=headers)
         except:
             continue
-
+        
         if "登录成功" in con_login.text:
             accNo = jsonpath.jsonpath(con_login.json(), '$..accNo')[0]
             trueName = jsonpath.jsonpath(con_login.json(), '$..trueName')[0]
@@ -160,11 +160,11 @@ def get_a_resv(zwyy_con, resvMember, resvDev, start_time, end_time, userid, pass
                                                headers=headers)
     except:
         return "Get_Error"
-    print(str(resvDev)+'，'+con_nonceStr_publicKey.text)
-
+    print(str(resvDev) + '，' + con_nonceStr_publicKey.text)
+    
     if "新增成功" in con_nonceStr_publicKey.text:
         return "Success"
-    elif "请在7:00之后" in con_nonceStr_publicKey.text:
+    elif "请在07:00之后" in con_nonceStr_publicKey.text:
         return "Get_Error"
     elif "该时间段内已被预约" in con_nonceStr_publicKey.text:
         return "Booked"
@@ -225,28 +225,16 @@ def get_all_room(zwyy_con, resvMember, time_no, userid, password):
         res_a, res_b = get_all_resv(zwyy_con, resvMember, room_no, start_time, end_time, userid, password)
         if "TY" in str(res_b):
             res = f"时间段为{start_time}到{end_time}，座位预约成功，位置为{res_b}\n"
-            while True:
-                try:
-                    res_lock.acquire()
-                    all_res += res
-                finally:
-                    res_lock.release()
-                    break
+            all_res += res
             return
         room_no += 1
         if res_b == 00 and room_no >= len(zwyy_roomid):
             res = f"时间段为{start_time}到{end_time}，座位预约失败\n"
-            while True:
-                try:
-                    res_lock.acquire()
-                    all_res += res
-                finally:
-                    res_lock.release()
-                    break
+            all_res += res
             return
 
 
-def p_run(use_threads: bool = True):  # 注意，启用多线程有可能会导致未知的错误！
+def p_run():
     zwyy_con = requests.Session()  # 初始化requests
     # 进行登录
     to_print('进行登录……')
@@ -269,18 +257,12 @@ def p_run(use_threads: bool = True):  # 注意，启用多线程有可能会导�
     global all_res
     all_res = f"姓名：{name},运行结果：\n"
     time_thread = 0
-    threads = []
     while time_thread < len(zwyy_time):
         print(f"线程{time_thread}开始运行")
         t = threading.Thread(target=get_all_room, args=(zwyy_con, userid, time_thread, user, pwd,))
-        threads.append(t)
         t.start()
-        if not use_threads:
-            t.join()
+        t.join()
         time_thread += 1
-    if use_threads:
-        for _ in threads:
-            t.join()
     return "OK"
     # res = zwyy_th(userid, name, userid, pwd)
 
@@ -288,15 +270,13 @@ def p_run(use_threads: bool = True):  # 注意，启用多线程有可能会导�
 def main():
     os.system("cls")
     v_info()
+    _push('现在时间是：' + str(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))) + '脚本开始运行！')
     load_res = load_zwyy_json()  # 加载Json
     if load_res == "JsonNotFile":
         return
-    res = p_run()
-    if res == "OK":
-        os.system("cls")
-        v_info()
-        _push(all_res)
-        os.system("pause")
+    p_run()
+    _push(all_res)
+    os.system("pause")
 
 
 main()
