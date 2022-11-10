@@ -35,8 +35,7 @@ def _push(text):
     try:
         push_url = f"https://api2.pushdeer.com/message/push?pushkey={pushkey}&text={text}"
         requests.get(push_url, timeout=3, verify=False)
-    except \
-            :
+    except:
         with open('./zwyy.log', 'a+') as f:
             print(text, file=f)
 
@@ -55,8 +54,9 @@ def v_info():
                 "██║██████╔╝██║███████╗███████╗╚███╔███╔╝   ██║      ██║   \n" \
                 "╚═╝╚═════╝ ╚═╝╚══════╝╚══════╝ ╚══╝╚══╝    ╚═╝      ╚═╝   \n" \
                 "                                                          \n"
-    version_text = "                                                版本：v1.2.0\n"
-    print(logo_text + version_text)
+    update_text = "版本更新说明\n版本v1.0，基于新座位预约系统编写，基本功能正常使用，第一个发布版。\n版本v1.1，优化显示，独立部分模块，允许未到时间提前登录的，概率上加快抢座位速度。\n版本v1.2" \
+                  "，精简化ddddocr，缩小生成文件体积,同时易于生成。\n "
+    print(logo_text)
 
 
 # 加载Json
@@ -264,11 +264,13 @@ def p_run():
         t.join()
         time_thread += 1
     return "OK"
+    # res = zwyy_th(userid, name, userid, pwd)
 
 
 def main():
     os.system("cls")
     v_info()
+    _push('现在时间是：' + str(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))) + '脚本开始运行！')
     load_res = load_zwyy_json()  # 加载Json
     if load_res == "JsonNotFile":
         return
