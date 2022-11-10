@@ -32,12 +32,12 @@ class TypeError(Exception):
 
 
 class DdddOcr(object):
-    def __init__(self, ocr: bool = True, beta: bool = False):
+    def __init__(self, ocr: bool = True, beta: bool = False, onnx_path: str = './common_old.onnx'):
         self.__word = False
         self.__resize = []
         self.__channel = 1
 
-        self.__graph_path = os.path.join('./common_old.onnx')
+        self.__graph_path = os.path.join(onnx_path)
         self.__charset = ["", "掀", "袜", "顧", "徕", "榱", "荪", "浡", "其", "炎", "玉", "恩", "劣", "徽", "廉", "桂",
                           "拂",
                           "鳊", "撤",
