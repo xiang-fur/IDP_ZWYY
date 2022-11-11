@@ -1,21 +1,18 @@
 {
-  "users": [
+  "user": [
     {
       "id": "",
       "pwd": "",
       "priority_id": "",
-      "priority_name": "",
-      "pushkey": ""
-    },
-    {
+      "priority_name": ""
+    },{
       "id": "",
       "pwd": "",
       "priority_id": "",
-      "priority_name": "",
-      "pushkey": ""
+      "priority_name": ""
     }
   ],
-  "times": [
+  "time": [
     {
       "start_time": "07:30:00",
       "end_time": "12:00:00"
@@ -27,43 +24,6 @@
     {
       "start_time": "18:00:00",
       "end_time": "22:00:00"
-    }
-  ],
-  "rooms": [
-    {
-      "use_room": [
-        "TY808",
-        "TY809",
-        "TY811"
-      ],
-      "room": [
-        {
-          "TY808": [
-            {
-              "id": 100487146,
-              "dev": [
-                {}
-              ]
-            }
-          ],
-          "TY809": [
-            {
-              "id": 100487148,
-              "dev": [
-                {}
-              ]
-            }
-          ],
-          "TY811": [
-            {
-              "id": 100487150,
-              "dev": [
-                {}
-              ]
-            }
-          ]
-        }
-      ]
     }
   ],
   "room": [
@@ -267,5 +227,6 @@
         "TY811-024"
       ]
     }
-  ]
+  ],
+  "pushkey": ""
 }
