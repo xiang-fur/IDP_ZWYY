@@ -28,18 +28,32 @@ headers = {
                   "Chrome/92.0.4515.159 Safari/537.36"}
 
 ocr = DdddOcr(onnx_path=onnxfile)  # 初始化ocr
-res_lock = threading.Lock()
 
 
 # 推送&显示返回
-def _push(text):
+def _push(text, name='运行通知'):
     print(text)
     try:
-        push_url = f"https://api2.pushdeer.com/message/push?pushkey={pushkey}&text={text}"
-        requests.get(push_url, timeout=3, verify=False)
+        if use_ifttt:
+            if "现在时间是" not in text:
+                print("ifttt推送中...")
+            requests.post('https://maker.ifttt.com/trigger/' + ifttt_event + '/with/key/' + ifttt_key,
+                          data={"value1": name, "value2": text}, timeout=3, verify=False)
+        elif use_pushdeer:
+            if "现在时间是" not in text:
+                print("pushdeer推送中...")
+            requests.post('https://' + push_site + '/message/push?pushkey=' + push_key + '&text=' + text, timeout=3,
+                          verify=False)
+        else:
+            if "现在时间是" not in text:
+                print("未开启推送")
+            with open('./zwyy.log', 'a+') as f:
+                print(text, file=f)
+            return "Success"
     except:
         with open('./zwyy.log', 'a+') as f:
             print(text, file=f)
+            return "Success"
 
 
 # 版本信息
@@ -62,13 +76,35 @@ def load_zwyy_json():
         print('未找到zwyy_json.json，请检查！')
         return "JsonNotFile"
     zwyy_json = json.load(open(jsonfile, 'r'))
-    global zwyy_user, zwyy_time, zwyy_roomid, zwyy_devid, zwyy_devname, pushkey
+    global zwyy_user, zwyy_time, zwyy_roomid, zwyy_devid, zwyy_devname
     zwyy_user = zwyy_json['user']
     zwyy_time = zwyy_json['time']
     zwyy_roomid = jsonpath.jsonpath(zwyy_json, '$..roomid')
     zwyy_devid = jsonpath.jsonpath(zwyy_json, '$..devid')
     zwyy_devname = jsonpath.jsonpath(zwyy_json, '$..devname')
-    pushkey = zwyy_json['pushkey']
+    if zwyy_json['ifttt']['use'] == 'True':
+        # ifttt
+        try:
+            global ifttt_key, ifttt_event
+            ifttt_key = zwyy_json['ifttt']['key']
+            ifttt_event = zwyy_json['ifttt']['event']
+            global use_ifttt
+            use_ifttt = True
+        except:
+            pass
+    elif zwyy_json['pushdeer']['use'] == 'True':
+        # pushdeer
+        try:
+            global push_site, push_key
+            push_site = zwyy_json['pushdeer']['site']
+            push_key = zwyy_json['pushdeer']['key']
+            global use_pushdeer
+            use_pushdeer = True
+        except:
+            pass
+    else:
+        print('未找到推送配置…')
+        return "PushNotConfig"
 
 
 # 获取和拼凑密钥，返回密钥和随机码
@@ -168,7 +204,7 @@ def get_a_resv(zwyy_con, resvMember, resvDev, start_time, end_time, userid, pass
 
 
 # 获取指定时间BeginTime-EndTime内单个教室座位,返回两组数据
-def get_all_resv(zwyy_con, resvMember, room_no, start_time, end_time, userid, password,priority):
+def get_all_resv(zwyy_con, resvMember, room_no, start_time, end_time, userid, password, priority):
     dev_no = 0
     res_a = 00
     res_b = 00
@@ -176,7 +212,7 @@ def get_all_resv(zwyy_con, resvMember, room_no, start_time, end_time, userid, pa
     dev_name = zwyy_devname[room_no]
     # 优选座位获取
     while True:
-        priorityid,priorityname = priority
+        priorityid, priorityname = priority
         priority_res = get_a_resv(zwyy_con, resvMember, priorityid, start_time, end_time, userid, password)
         if priority_res == "Success":
             return priorityid, priorityname
@@ -212,7 +248,7 @@ def get_all_room(zwyy_con, resvMember, time_no, userid, password, priority):
     end_time = jsonpath.jsonpath(zwyy_time[time_no], '$..end_time')[0]
     room_no = 0
     while room_no < len(zwyy_roomid):
-        res_a, res_b = get_all_resv(zwyy_con, resvMember, room_no, start_time, end_time, userid, password,priority)
+        res_a, res_b = get_all_resv(zwyy_con, resvMember, room_no, start_time, end_time, userid, password, priority)
         if "TY" in str(res_b):
             res = f"时间段为{start_time}到{end_time}，座位预约成功，位置为{res_b}。\n"
             return res
@@ -223,7 +259,7 @@ def get_all_room(zwyy_con, resvMember, time_no, userid, password, priority):
 
 
 # 单用户座位获取
-def get_run(user, pwd,priority, user_thread):
+def get_run(user, pwd, priority, user_thread):
     zwyy_con = requests.Session()  # 初始化requests
     # 进行登录
     print(f'线程{user_thread}，学号：{user},进行登录……')
@@ -242,13 +278,13 @@ def get_run(user, pwd,priority, user_thread):
     print(
         f"线程{user_thread}，现在时间是{str(time.strftime('%H:%M:%S', time.localtime(time.time())))},开始预约座位！")
     # 单线程获取座位
-    all_res = f"线程{user_thread}，姓名：{name},运行结果：\n"
+    all_res = f"线程{user_thread}，运行结果：\n"
     time_no = 0
     while time_no < len(zwyy_time):
         res = get_all_room(zwyy_con, userid, time_no, user, pwd, priority)
         all_res += res
         time_no += 1
-    _push(all_res)
+    _push(all_res, name)
 
 
 # 多线程获取多用户座位
@@ -266,12 +302,13 @@ def test_th_users():
         pwd = zwyy_user[user_thread]["pwd"]
         priorityid = zwyy_user[user_thread]['priority_id']
         priorityname = zwyy_user[user_thread]['priority_name']
-        priority = priorityid,priorityname
-        t = threading.Thread(target=get_run, args=(user, pwd,priority, user_thread,))
+        priority = priorityid, priorityname
+        t = threading.Thread(target=get_run, args=(user, pwd, priority, user_thread,))
         threads.append(t)
         t.start()
         user_thread += 1
-    for _ in threads:
+
+    for t in threads:
         t.join()
     return "OK"
 

@@ -228,5 +228,14 @@
       ]
     }
   ],
-  "pushkey": ""
+    "ifttt": {
+    "use": "False",
+    "key": "",
+    "event": ""
+  },
+  "pushdeer": {
+    "use": "False",
+    "site": "api2.pushdeer.com",
+    "key": ""
+  }
 }
