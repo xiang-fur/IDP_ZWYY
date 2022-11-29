@@ -38,7 +38,7 @@ def _push(text, name='运行通知'):
             if "现在时间是" not in text:
                 print("ifttt推送中...")
             requests.post('https://maker.ifttt.com/trigger/' + ifttt_event + '/with/key/' + ifttt_key,
-                          data={"value1": name, "value2": text}, timeout=3, verify=False)
+                          data={"value1": '座位预约通知：#' + str(name), "value2": text}, timeout=3, verify=False)
         elif use_pushdeer:
             if "现在时间是" not in text:
                 print("pushdeer推送中...")
@@ -76,9 +76,10 @@ def load_zwyy_json():
         print('未找到zwyy_json.json，请检查！')
         return "JsonNotFile"
     zwyy_json = json.load(open(jsonfile, 'r'))
-    global zwyy_user, zwyy_time, zwyy_roomid, zwyy_devid, zwyy_devname
+    global zwyy_user, zwyy_time, zwyy_roomid, zwyy_devid, zwyy_devname,zwyy_url
     zwyy_user = zwyy_json['user']
     zwyy_time = zwyy_json['time']
+    zwyy_url = zwyy_json['url']
     zwyy_roomid = jsonpath.jsonpath(zwyy_json, '$..roomid')
     zwyy_devid = jsonpath.jsonpath(zwyy_json, '$..devid')
     zwyy_devname = jsonpath.jsonpath(zwyy_json, '$..devname')
@@ -109,7 +110,7 @@ def load_zwyy_json():
 
 # 获取和拼凑密钥，返回密钥和随机码
 def get_nonceStr_publicKey(zwyy_con):
-    url_nonceStr_publicKey = "https://zwyy.cidp.edu.cn/ic-web/login/publicKey"
+    url_nonceStr_publicKey = f"https://{zwyy_url}/ic-web/login/publicKey"
     while True:
         try:
             con_nonceStr_publicKey = zwyy_con.get(url_nonceStr_publicKey, verify=False)
@@ -136,7 +137,7 @@ def encrypt_password(zwyy_con, password):
 def get_captcha(zwyy_con):
     while True:
         try:
-            url_get_captcha = f"https://zwyy.cidp.edu.cn/ic-web/captcha?id={int(time.time() * 1000)}"
+            url_get_captcha = f"https://{zwyy_url}/ic-web/captcha?id={int(time.time() * 1000)}"
             con_get_captcha = zwyy_con.get(url_get_captcha, verify=False, headers=headers)
             captcha = ocr.classification(con_get_captcha.content)
             return captcha
@@ -150,7 +151,7 @@ def get_login(zwyy_con, userid, password):
     while n <= 8:
         captcha = get_captcha(zwyy_con)
         pwd = encrypt_password(zwyy_con, password)
-        url_login = "https://zwyy.cidp.edu.cn/ic-web/login/user"
+        url_login = f"https://{zwyy_url}/ic-web/login/user"
         data = {"logonName": userid,
                 "password": pwd,
                 "captcha": captcha,
@@ -183,7 +184,7 @@ def get_a_resv(zwyy_con, resvMember, resvDev, start_time, end_time, userid, pass
             "resvBeginTime": BeginTime, "resvEndTime": EndTime, "testName": "", "captcha": "",
             "resvProperty": 0, "resvDev": [int(resvDev)], "memo": ""}
     try:
-        con_nonceStr_publicKey = zwyy_con.post("https://zwyy.cidp.edu.cn/ic-web/reserve", json=data, verify=False,
+        con_nonceStr_publicKey = zwyy_con.post(f"https://{zwyy_url}/ic-web/reserve", json=data, verify=False,
                                                headers=headers)
     except:
         return "Get_Error"
@@ -250,11 +251,11 @@ def get_all_room(zwyy_con, resvMember, time_no, userid, password, priority):
     while room_no < len(zwyy_roomid):
         res_a, res_b = get_all_resv(zwyy_con, resvMember, room_no, start_time, end_time, userid, password, priority)
         if "TY" in str(res_b):
-            res = f"时间段为{start_time}到{end_time}，座位预约成功，位置为{res_b}。\n"
+            res = f"时间段为{start_time}到{end_time}，座位预约成功，位置为{res_b}。<br>\n"
             return res
         room_no += 1
         if res_b == 00 and room_no >= len(zwyy_roomid):
-            res = f"时间段为{start_time}到{end_time}，座位预约失败。\n"
+            res = f"时间段为{start_time}到{end_time}，座位预约失败。<br>\n"
             return res
 
 
@@ -278,7 +279,7 @@ def get_run(user, pwd, priority, user_thread):
     print(
         f"线程{user_thread}，现在时间是{str(time.strftime('%H:%M:%S', time.localtime(time.time())))},开始预约座位！")
     # 单线程获取座位
-    all_res = f"线程{user_thread}，运行结果：\n"
+    all_res = f"线程{user_thread}，运行结果：<br>\n"
     time_no = 0
     while time_no < len(zwyy_time):
         res = get_all_room(zwyy_con, userid, time_no, user, pwd, priority)
