@@ -16,8 +16,10 @@ from Crypto.PublicKey import RSA
 
 from ddddocr_m import DdddOcr
 
-jsonfile = './zwyy_json.json'  # Json路径，使用cron运行请写完整路径
-onnxfile = './common_old.onnx'  # onnx路径，使用cron运行请写完整路径
+runFile = os.getcwd()
+jsonfile = f'{runFile}/zwyy_json.json'
+onnxfile = f'{runFile}/common_old.onnx'
+ocr = DdddOcr(onnx_path=onnxfile)  # 初始化ocr
 
 tomorrow_date = str(time.strftime('%Y-%m-%d', time.localtime(time.time() + 86400)))
 
@@ -27,7 +29,6 @@ headers = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
                   "Chrome/92.0.4515.159 Safari/537.36"}
 
-ocr = DdddOcr(onnx_path=onnxfile)  # 初始化ocr
 
 
 # 推送&显示返回
@@ -315,15 +316,11 @@ def test_th_users():
 
 
 def main():
-    os.system("cls")
     v_info()
     load_res = load_zwyy_json()  # 加载Json
     if load_res == "JsonNotFile":
         return
     _push('现在时间是：' + str(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))) + '脚本开始运行！')
-    res = test_th_users()
-    if res == "OK":
-        os.system("pause")
-
+    test_th_users()
 
 main()
