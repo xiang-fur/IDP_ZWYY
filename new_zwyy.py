@@ -34,28 +34,11 @@ headers = {
 # 推送&显示返回
 def _push(text, name='运行通知'):
     print(text)
-    try:
-        if use_ifttt:
-            if "现在时间是" not in text:
-                print("ifttt推送中...")
-            requests.post('https://maker.ifttt.com/trigger/' + ifttt_event + '/with/key/' + ifttt_key,
-                          data={"value1": '座位预约通知：#' + str(name), "value2": text}, timeout=3, verify=False)
-        elif use_pushdeer:
-            if "现在时间是" not in text:
-                print("pushdeer推送中...")
-            requests.post('https://' + push_site + '/message/push?pushkey=' + push_key + '&text=' + text, timeout=3,
-                          verify=False)
-        else:
-            if "现在时间是" not in text:
-                print("未开启推送")
-            with open('./zwyy.log', 'a+') as f:
-                print(text, file=f)
-            return "Success"
-    except:
-        with open('./zwyy.log', 'a+') as f:
-            print(text, file=f)
-            return "Success"
-
+    if "现在时间是" not in text:
+        print("未开启推送")
+    with open('./zwyy.log', 'a+') as f:
+        print(text, file=f)
+    return "Success"
 
 # 版本信息
 def v_info():
@@ -84,30 +67,6 @@ def load_zwyy_json():
     zwyy_roomid = jsonpath.jsonpath(zwyy_json, '$..roomid')
     zwyy_devid = jsonpath.jsonpath(zwyy_json, '$..devid')
     zwyy_devname = jsonpath.jsonpath(zwyy_json, '$..devname')
-    if zwyy_json['ifttt']['use'] == 'True':
-        # ifttt
-        try:
-            global ifttt_key, ifttt_event
-            ifttt_key = zwyy_json['ifttt']['key']
-            ifttt_event = zwyy_json['ifttt']['event']
-            global use_ifttt
-            use_ifttt = True
-        except:
-            pass
-    elif zwyy_json['pushdeer']['use'] == 'True':
-        # pushdeer
-        try:
-            global push_site, push_key
-            push_site = zwyy_json['pushdeer']['site']
-            push_key = zwyy_json['pushdeer']['key']
-            global use_pushdeer
-            use_pushdeer = True
-        except:
-            pass
-    else:
-        print('未找到推送配置…')
-        return "PushNotConfig"
-
 
 # 获取和拼凑密钥，返回密钥和随机码
 def get_nonceStr_publicKey(zwyy_con):
